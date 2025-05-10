@@ -6,11 +6,31 @@ import { TextInputMask } from 'react-native-masked-text';
 import { useFonts, Montserrat_400Regular, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 
 const validationSchema = Yup.object().shape({
-  nome: Yup.string().required('Informe seu nome completo'),
-  cep: Yup.string().required('Informe o CEP').length(9, 'CEP inválido'),
-  cpf: Yup.string().required('Informe o CPF').length(14, 'CPF inválido'),
-  telefone: Yup.string().required('Informe o telefone').min(14, 'Telefone inválido'),
-  email: Yup.string().email('E-mail inválido').required('Informe o e-mail'),
+  nome: Yup.string()
+    .required('Informe seu nome completo')
+    .matches(/^[a-zA-ZÀ-ÿ\s']+$/, 'Nome deve conter apenas letras'),
+  cep: Yup.string()
+    .required('Informe o CEP')
+    .test('cep', 'CEP inválido', (value) => {
+      const unmasked = value?.replace(/\D/g, '');
+      return unmasked?.length === 8;
+    }),
+  cpf: Yup.string()
+    .required('Informe o CPF')
+    .test('cpf', 'CPF inválido', (value) => {
+      const unmasked = value?.replace(/\D/g, '');
+      return unmasked?.length === 11;
+    }),
+  telefone: Yup.string()
+    .required('Informe o telefone')
+    .test('telefone', 'Telefone inválido', (value) => {
+      const unmasked = value?.replace(/\D/g, '');
+      return unmasked?.length >= 10 && unmasked?.length <= 11;
+    }),
+  email: Yup.string()
+    .email('E-mail inválido')
+    .matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'E-mail inválido')
+    .required('Informe o e-mail'),
   senha: Yup.string()
     .required('Informe a senha')
     .min(8, 'A senha deve ter no mínimo 8 caracteres')
@@ -40,6 +60,16 @@ export default function App() {
     );
   }
 
+  const handleSubmitForm = (values, actions) => {
+    const { senha, ...safeValues } = values;
+    console.log('Dados do formulário (senha omitida):', safeValues);
+  
+    setTimeout(() => {
+      alert('Formulário enviado com sucesso!');
+      actions.setSubmitting(false);
+    }, 1500);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.form}>
@@ -53,21 +83,17 @@ export default function App() {
             senha: '',
           }}
           validationSchema={validationSchema}
-          onSubmit={(values, actions) => {
-            alert('Formulário enviado com sucesso!');
-            console.log(values);
-            actions.setSubmitting(false);
-          }}
+          onSubmit={handleSubmitForm}
         >
           {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue, isValid, isSubmitting }) => (
             <View>
               <Text style={styles.titulo}>Formulário</Text>
 
               {[
-                { label: 'Nome Completo', field: 'nome', type: 'text' },
-                { label: 'E-mail', field: 'email', type: 'email-address' },
-                { label: 'Senha', field: 'senha', type: 'password' },
-              ].map(({ label, field, type }) => (
+                { label: 'Nome Completo', field: 'nome', type: 'default', autoCapitalize: 'words' },
+                { label: 'E-mail', field: 'email', type: 'email-address', autoCapitalize: 'none' },
+                { label: 'Senha', field: 'senha', type: 'password', autoCapitalize: 'none' },
+              ].map(({ label, field, type, autoCapitalize }) => (
                 <View key={field}>
                   <Text style={styles.texto}>{label}</Text>
                   <TextInput
@@ -77,6 +103,8 @@ export default function App() {
                     onChangeText={handleChange(field)}
                     onBlur={handleBlur(field)}
                     value={values[field]}
+                    autoCapitalize={autoCapitalize}
+                    autoCorrect={false}
                     accessibilityLabel={`Campo ${label}`}
                   />
                   {touched[field] && errors[field] && <Text style={styles.error}>{errors[field]}</Text>}
@@ -89,6 +117,8 @@ export default function App() {
                 style={styles.input}
                 value={values.cep}
                 onChangeText={(text) => setFieldValue('cep', text)}
+                onBlur={handleBlur('cep')}
+                keyboardType="numeric"
                 accessibilityLabel="Campo CEP"
               />
               {touched.cep && errors.cep && <Text style={styles.error}>{errors.cep}</Text>}
@@ -99,6 +129,8 @@ export default function App() {
                 style={styles.input}
                 value={values.cpf}
                 onChangeText={(text) => setFieldValue('cpf', text)}
+                onBlur={handleBlur('cpf')}
+                keyboardType="numeric"
                 accessibilityLabel="Campo CPF"
               />
               {touched.cpf && errors.cpf && <Text style={styles.error}>{errors.cpf}</Text>}
@@ -110,18 +142,25 @@ export default function App() {
                 style={styles.input}
                 value={values.telefone}
                 onChangeText={(text) => setFieldValue('telefone', text)}
+                onBlur={handleBlur('telefone')}
+                keyboardType="phone-pad"
                 accessibilityLabel="Campo Telefone"
               />
               {touched.telefone && errors.telefone && <Text style={styles.error}>{errors.telefone}</Text>}
 
               <TouchableOpacity
                 onPress={handleSubmit}
-                style={[styles.botao, (!isValid || isSubmitting) && { backgroundColor: '#AAA' }]}
+                style={[styles.botao, (!isValid || isSubmitting) && styles.botaoDisabled]}
                 disabled={!isValid || isSubmitting}
                 accessibilityRole="button"
                 accessibilityLabel="Botão enviar"
+                accessibilityState={{ disabled: !isValid || isSubmitting }}
               >
-                <Text style={styles.botaoTexto}>{isSubmitting ? 'Enviando...' : 'Enviar'}</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.botaoTexto}>Enviar</Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -136,61 +175,61 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F2',
     justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   form: {
     marginTop: 20,
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#F2F2F2',
-    borderRadius: 10,
+    padding: 20
   },
   titulo: {
-    fontSize: 21,
+    fontSize: 24,
     fontFamily: 'Montserrat_700Bold',
     alignSelf: 'center',
-    paddingBottom: 10,
+    paddingBottom: 20,
     color: '#5941F2',
   },
   texto: {
     fontSize: 15,
-    paddingBottom: 10,
+    paddingBottom: 8,
     fontFamily: 'Montserrat_700Bold',
     color: '#705CF2',
   },
   input: {
-    width: 300,
-    alignSelf: 'center',
+    width: '100%',
     borderWidth: 1,
-    borderColor: '#999',
-    padding: 10,
+    borderColor: '#DDD',
+    padding: 12,
     marginBottom: 10,
-    borderRadius: 10,
-    height: 40,
+    borderRadius: 8,
     fontFamily: 'Montserrat_400Regular',
+    backgroundColor: '#FAFAFA',
   },
   error: {
-    color: '#976DF2',
-    marginBottom: 5,
-    textAlign: 'center',
-    maxWidth: 300,
-    alignSelf: 'center',
+    color: '#FF6B6B',
+    marginBottom: 10,
     fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
   },
   botao: {
     marginTop: 30,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: '#04D94F',
-    paddingVertical: 10,
-    paddingHorizontal: 40,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  botaoDisabled: {
+    backgroundColor: '#AAA',
   },
   botaoTexto: {
     color: '#fff',
     fontFamily: 'Montserrat_700Bold',
-    textAlign: 'center',
+    fontSize: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFF',
   },
 });
